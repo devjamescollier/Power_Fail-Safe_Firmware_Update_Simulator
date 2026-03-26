@@ -1,0 +1,17 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+compile_commands.json
+.cache/
+
+# Simulator flash files and generated images
+*.img
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS
+.DS_Store

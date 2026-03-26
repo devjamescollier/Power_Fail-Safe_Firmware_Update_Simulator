@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc-debug
+            cc: gcc
+            build_type: Debug
+            sanitize: "OFF"
+          - name: clang-debug
+            cc: clang
+            build_type: Debug
+            sanitize: "OFF"
+          - name: gcc-release
+            cc: gcc
+            build_type: Release
+            sanitize: "OFF"
+          - name: clang-asan-ubsan
+            cc: clang
+            build_type: Debug
+            sanitize: "ON"
+    env:
+      CC: ${{ matrix.cc }}
+      ASAN_OPTIONS: abort_on_error=1:detect_leaks=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DFWU_SANITIZE=${{ matrix.sanitize }}
+          -DFWU_WERROR=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Unit, end-to-end and fault-sweep tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Fault sweep summary
+        run: python3 -B tests/system/fault_sweep.py --fwsim build/fwsim
+
+      - name: Demo (successful update and rollback)
+        run: sh tools/demo.sh build/fwsim
